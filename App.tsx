@@ -49,8 +49,9 @@ AppleHealthKit.initHealthKit(permissions, (error: string) => {
 });
 
 export default function App() {
-  const [heartRate, setHeartRate] = useState<number | null>(null);
-  const [activeCalories, setActiveCalories] = useState<number | null>(null);
+  const [heartRateSamples, setHeartRateSamples] = useState<HealthValue[]>([]);
+  const [heartRateValues, setHeartRateValues] = useState<number[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const permissions = {
@@ -71,6 +72,8 @@ export default function App() {
   }, []);
 
   const handlePressGetHeartRate = () => {
+    setRefreshing(true);
+
     const options = {
       startDate: new Date(2020, 1, 1).toISOString(),
     };
@@ -83,30 +86,13 @@ export default function App() {
           return;
         }
         if (results.length > 0) {
-          const latestHeartRate = results[0].value;
-          setHeartRate(latestHeartRate);
-        }
-      },
-    );
-  };
-
-  const handlePressGetActiveCalories = () => {
-    const options = {
-      startDate: new Date(2021, 0, 0).toISOString(),
-    };
-
-    AppleHealthKit.getActiveEnergyBurned(
-      options,
-      (err: string, results: HealthValue[]) => {
-        if (err) {
-          console.error(err);
-          return;
-        }
-        if (results.length > 0) {
-          setActiveCalories(results[0].value);
+          const newHeartRateValues = results.map(sample => sample.value);
+          setHeartRateValues(newHeartRateValues);
         } else {
-          setActiveCalories(null);
+          setHeartRateValues([]);
         }
+
+        setRefreshing(false);
       },
     );
   };
@@ -115,33 +101,27 @@ export default function App() {
     <>
       <StatusBar barStyle="dark-content" />
       <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Heart rate values</Text>
+        </View>
         <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
+          contentContainerStyle={styles.contentContainer}
           style={styles.scrollView}>
-          <View style={styles.body}>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>
-                Apple HealthKit Integration
+          {refreshing && <Text style={styles.loadingText}></Text>}
+          <View style={styles.listContainer}>
+            {heartRateValues.map((value, index) => (
+              <Text style={styles.heartRateValue} key={index}>
+                {value} bpm
               </Text>
-              <TouchableOpacity
-                style={styles.button}
-                onPress={handlePressGetHeartRate}>
-                <Text style={styles.buttonText}>Heart Rate</Text>
-              </TouchableOpacity>
-              {heartRate !== null && (
-                <Text style={styles.dataText}>{heartRate} bpm</Text>
-              )}
-              <TouchableOpacity
-                style={styles.button}
-                onPress={handlePressGetActiveCalories}>
-                <Text style={styles.buttonText}>Active Calories Burned</Text>
-              </TouchableOpacity>
-              {activeCalories !== null && (
-                <Text style={styles.dataText}>{activeCalories} kcal</Text>
-              )}
-            </View>
+            ))}
           </View>
         </ScrollView>
+        <TouchableOpacity
+          style={styles.refreshButton}
+          onPress={handlePressGetHeartRate}
+          disabled={refreshing}>
+          <Text style={styles.buttonText}>Refresh</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     </>
   );
@@ -152,40 +132,49 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'white',
   },
-  scrollView: {
-    backgroundColor: 'lightgray',
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 32,
   },
-  body: {
+  title: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: 'black',
+  },
+  scrollView: {
     backgroundColor: 'white',
   },
-  sectionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 32,
+  contentContainer: {
+    paddingVertical: 16,
+  },
+  listContainer: {
     paddingHorizontal: 24,
   },
-  sectionTitle: {
-    fontSize: 24,
+  heartRateValue: {
+    fontSize: 20,
     fontWeight: '600',
     color: 'black',
     marginBottom: 16,
   },
-  button: {
+  refreshButton: {
     backgroundColor: '#2196F3',
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 8,
+    marginHorizontal: 24,
     marginBottom: 16,
+    alignSelf: 'center',
   },
   buttonText: {
     fontSize: 18,
     fontWeight: '600',
     color: 'white',
   },
-  dataText: {
-    fontSize: 20,
+  loadingText: {
+    fontSize: 18,
     fontWeight: '600',
     color: 'black',
+    alignSelf: 'center',
+    marginBottom: 16,
   },
 });
